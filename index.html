@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NST-AdaIN | Real-Time Neural Style Transfer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #090a12;
+      --bg-soft: #101322;
+      --card: rgba(255, 255, 255, 0.08);
+      --card-strong: rgba(255, 255, 255, 0.12);
+      --text: #f7f5ff;
+      --muted: #b7b4c8;
+      --purple: #8b5cf6;
+      --pink: #ec4899;
+      --cyan: #22d3ee;
+      --orange: #fb923c;
+      --line: rgba(255, 255, 255, 0.14);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(139, 92, 246, 0.35), transparent 34rem),
+        radial-gradient(circle at 75% 15%, rgba(236, 72, 153, 0.24), transparent 30rem),
+        radial-gradient(circle at 35% 80%, rgba(34, 211, 238, 0.18), transparent 28rem),
+        var(--bg);
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    .page-shell {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0;
+      position: relative;
+      z-index: 5;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--purple), var(--pink), var(--orange));
+      box-shadow: 0 12px 36px rgba(139, 92, 246, 0.45);
+      font-size: 18px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .nav-cta,
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font-weight: 700;
+      backdrop-filter: blur(18px);
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .nav-cta:hover,
+    .btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      border: none;
+      box-shadow: 0 18px 45px rgba(139, 92, 246, 0.36);
+    }
+
+    .hero {
+      min-height: 760px;
+      display: grid;
+      grid-template-columns: 1fr 0.92fr;
+      align-items: center;
+      gap: 52px;
+      padding: 56px 0 96px;
+      position: relative;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #ddd8ff;
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(16px);
+      margin-bottom: 22px;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .eyebrow span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 24px var(--cyan);
+    }
+
+    h1 {
+      max-width: 760px;
+      font-size: clamp(48px, 8vw, 88px);
+      line-height: 0.92;
+      letter-spacing: -0.075em;
+      margin-bottom: 26px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #fff, #d8ccff 32%, #ffb4df 72%, #ffd2a8);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero-copy {
+      max-width: 640px;
+      color: var(--muted);
+      font-size: 19px;
+      line-height: 1.75;
+      margin-bottom: 34px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 34px;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hero-meta strong {
+      color: var(--text);
+    }
+
+    .demo-card {
+      position: relative;
+      padding: 18px;
+      border-radius: 34px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.06));
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+    }
+
+    .demo-window {
+      border-radius: 26px;
+      overflow: hidden;
+      background: #11131f;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .window-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #ff5f57;
+    }
+
+    .dot:nth-child(2) { background: #ffbd2e; }
+    .dot:nth-child(3) { background: #28c840; }
+
+    .preview-grid {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .preview-tile {
+      min-height: 180px;
+      border-radius: 22px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .preview-tile::before {
+      content: "";
+      position: absolute;
+      inset: -30%;
+      opacity: 0.9;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.75), transparent 10%),
+        radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.45), transparent 12%),
+        linear-gradient(135deg, var(--purple), var(--pink), var(--orange));
+      filter: blur(2px);
+      transform: rotate(-12deg);
+    }
+
+    .preview-tile:nth-child(2)::before {
+      background:
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.25) 0 7px, transparent 7px 14px),
+        linear-gradient(135deg, #0f766e, var(--cyan), #a78bfa);
+    }
+
+    .preview-tile:nth-child(3) {
+      grid-column: span 2;
+      min-height: 220px;
+    }
+
+    .preview-tile:nth-child(3)::before {
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.45), transparent 12%),
+        radial-gradient(circle at 78% 26%, rgba(255, 215, 130, 0.55), transparent 16%),
+        repeating-linear-gradient(-20deg, rgba(255,255,255,0.16) 0 6px, transparent 6px 16px),
+        linear-gradient(135deg, #312e81, #7c3aed, #ec4899, #f59e0b);
+    }
+
+    .tile-label,
+    .tile-badge {
+      position: relative;
+      z-index: 2;
+    }
+
+    .tile-label {
+      font-weight: 800;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .tile-badge {
+      align-self: flex-start;
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.34);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      backdrop-filter: blur(12px);
+    }
+
+    .control-strip {
+      padding: 0 18px 18px;
+    }
+
+    .slider-card {
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .slider-top {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .slider-track {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+
+    .slider-fill {
+      width: 78%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
+      border-radius: inherit;
+    }
+
+    .section {
+      padding: 96px 0;
+    }
+
+    .section-heading {
+      max-width: 720px;
+      margin-bottom: 42px;
+    }
+
+    .section-kicker {
+      color: var(--cyan);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1;
+      letter-spacing: -0.055em;
+      margin-bottom: 18px;
+    }
+
+    .section-heading p {
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.75;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .feature-card,
+    .step-card,
+    .tech-card {
+      padding: 26px;
+      border-radius: 28px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(18px);
+    }
+
+    .icon {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9));
+      margin-bottom: 22px;
+      font-size: 20px;
+    }
+
+    .feature-card h3,
+    .step-card h3,
+    .tech-card h3 {
+      font-size: 21px;
+      margin-bottom: 12px;
+      letter-spacing: -0.035em;
+    }
+
+    .feature-card p,
+    .step-card p,
+    .tech-card p {
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      counter-reset: step;
+    }
+
+    .step-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .step-card::before {
+      counter-increment: step;
+      content: "0" counter(step);
+      display: inline-flex;
+      width: 42px;
+      height: 42px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--line);
+      color: #fff;
+      font-weight: 800;
+      margin-bottom: 22px;
+    }
+
+    .tech-panel {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .gallery-card {
+      overflow: hidden;
+      border-radius: 28px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(18px);
+    }
+
+    .gallery-card img {
+      width: 100%;
+      height: 250px;
+      object-fit: cover;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(236, 72, 153, 0.25));
+    }
+
+    .gallery-content {
+      padding: 20px;
+    }
+
+    .gallery-content h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      letter-spacing: -0.03em;
+    }
+
+    .gallery-content p {
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .gallery-note {
+      margin-top: 18px;
+      padding: 18px 20px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 14px;
+    }
+
+    .gallery-note code {
+      color: #ddd6fe;
+    }
+
+    .code-card {
+      padding: 26px;
+      border-radius: 28px;
+      background: #0b0e18;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .code-line {
+      display: block;
+      color: #c4b5fd;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      line-height: 1.9;
+      white-space: nowrap;
+    }
+
+    .code-line span {
+      color: #67e8f9;
+    }
+
+    .tech-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .cta-section {
+      padding: 96px 0 120px;
+    }
+
+    .cta-box {
+      position: relative;
+      overflow: hidden;
+      padding: 58px;
+      border-radius: 38px;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.2), transparent 26rem),
+        linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(236, 72, 153, 0.22));
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .cta-box h2 {
+      max-width: 760px;
+      margin: 0 auto 18px;
+    }
+
+    .cta-box p {
+      max-width: 660px;
+      margin: 0 auto 30px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .footer {
+      padding: 34px 0;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+
+    @media (max-width: 960px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero,
+      .tech-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding-top: 34px;
+      }
+
+      .features-grid,
+      .workflow,
+      .gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-shell {
+        width: min(100% - 28px, 1180px);
+      }
+
+      .hero {
+        min-height: auto;
+        padding-bottom: 64px;
+      }
+
+      .features-grid,
+      .workflow,
+      .tech-list,
+      .gallery-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-tile:nth-child(3) {
+        grid-column: span 1;
+      }
+
+      .cta-box {
+        padding: 36px 22px;
+      }
+
+      .footer {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-shell nav">
+    <a href="#" class="brand" aria-label="NST-AdaIN home">
+      <span class="brand-mark">AI</span>
+      <span>NST-AdaIN</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#tech">Tech Stack</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#try">Try Demo</a>
+    </nav>
+
+    <div class="nav-actions">
+      <a class="nav-cta" href="https://huggingface.co/spaces/sriKritarth/trial-2" target="_blank" rel="noreferrer">Launch App</a>
+      <a class="nav-cta" href="https://github.com/sriKritarth/NST-AdaIN" target="_blank" rel="noreferrer">GitHub Repo</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-shell hero">
+      <div>
+        <div class="eyebrow"><span></span> Real-time arbitrary neural style transfer</div>
+        <h1>Turn photos into <span class="gradient-text">stylized artwork</span> in seconds.</h1>
+        <p class="hero-copy">
+          NST-AdaIN blends a content image with any style image using Adaptive Instance Normalization. Upload two images, tune the alpha strength, and generate a unique stylized result through a clean web interface.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://huggingface.co/spaces/sriKritarth/trial-2" target="_blank" rel="noreferrer">Launch Deployed App</a>
+          <a class="btn" href="https://github.com/sriKritarth/NST-AdaIN" target="_blank" rel="noreferrer">View Source</a>
+        </div>
+
+        <div class="hero-meta">
+          <span><strong>PyTorch</strong> model</span>
+          <span><strong>Flask</strong> web app</span>
+          <span><strong>AdaIN</strong> algorithm</span>
+        </div>
+      </div>
+
+      <div class="demo-card" aria-label="Style transfer interface preview">
+        <div class="demo-window">
+          <div class="window-bar">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+
+          <div class="preview-grid">
+            <div class="preview-tile">
+              <span class="tile-label">Content</span>
+              <span class="tile-badge">Photo input</span>
+            </div>
+            <div class="preview-tile">
+              <span class="tile-label">Style</span>
+              <span class="tile-badge">Artwork input</span>
+            </div>
+            <div class="preview-tile">
+              <span class="tile-label">Generated Result</span>
+              <span class="tile-badge">AdaIN output</span>
+            </div>
+          </div>
+
+          <div class="control-strip">
+            <div class="slider-card">
+              <div class="slider-top">
+                <span>Alpha strength</span>
+                <strong>0.78</strong>
+              </div>
+              <div class="slider-track">
+                <div class="slider-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="page-shell section">
+      <div class="section-heading">
+        <div class="section-kicker">Features</div>
+        <h2>Designed for fast creative experiments.</h2>
+        <p>
+          A focused neural style transfer app for artists, students, and ML learners who want an interactive way to explore how content features and style statistics combine.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="icon">⚡</div>
+          <h3>Single-pass transfer</h3>
+          <p>Apply arbitrary styles to content images in one forward pass instead of training a separate model for every style.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="icon">🎚️</div>
+          <h3>Adjustable alpha</h3>
+          <p>Control how strongly the style affects the final image, from subtle texture blending to full stylization.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="icon">🖼️</div>
+          <h3>Simple upload UI</h3>
+          <p>Use the Flask interface to upload content and style images, generate output, and download the result.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="workflow" class="page-shell section">
+      <div class="section-heading">
+        <div class="section-kicker">Workflow</div>
+        <h2>From image pair to stylized output.</h2>
+        <p>
+          The app keeps the experience simple while the model handles feature extraction, AdaIN alignment, and image reconstruction behind the scenes.
+        </p>
+      </div>
+
+      <div class="workflow">
+        <article class="step-card">
+          <h3>Upload content</h3>
+          <p>Choose the photo or scene whose structure you want to preserve.</p>
+        </article>
+
+        <article class="step-card">
+          <h3>Upload style</h3>
+          <p>Select any artwork or visual reference whose texture and color statistics should guide the output.</p>
+        </article>
+
+        <article class="step-card">
+          <h3>Tune alpha</h3>
+          <p>Set the stylization strength between original content and full style transfer.</p>
+        </article>
+
+        <article class="step-card">
+          <h3>Generate art</h3>
+          <p>The VGG encoder, AdaIN layer, and decoder produce a stylized image ready to save.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tech" class="page-shell section">
+      <div class="section-heading">
+        <div class="section-kicker">Under the hood</div>
+        <h2>Built on a clean ML pipeline.</h2>
+        <p>
+          The project uses a fixed VGG encoder for feature extraction and a decoder trained to reconstruct images from AdaIN-transformed features.
+        </p>
+      </div>
+
+      <div class="tech-panel">
+        <div class="code-card" aria-label="AdaIN code preview">
+          <code class="code-line"><span>content</span> → VGG Encoder</code>
+          <code class="code-line"><span>style</span> → VGG Encoder</code>
+          <code class="code-line">AdaIN(x, y) = σ(y) · norm(x) + μ(y)</code>
+          <code class="code-line"><span>features</span> → Decoder</code>
+          <code class="code-line"><span>output</span> → Stylized Image</code>
+        </div>
+
+        <div class="tech-list">
+          <article class="tech-card">
+            <h3>PyTorch</h3>
+            <p>Model implementation, tensor operations, encoder, decoder, and training pipeline.</p>
+          </article>
+          <article class="tech-card">
+            <h3>Flask</h3>
+            <p>Lightweight web app for uploading images and serving generated results.</p>
+          </article>
+          <article class="tech-card">
+            <h3>VGG Encoder</h3>
+            <p>Pre-trained normalized VGG network extracts perceptual content and style features.</p>
+          </article>
+          <article class="tech-card">
+            <h3>Deploy Ready</h3>
+            <p>Includes a Procfile and gunicorn setup for cloud deployment workflows.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery" class="page-shell section">
+      <div class="section-heading">
+        <div class="section-kicker">Project Gallery</div>
+        <h2>Testing outputs and training experiments.</h2>
+        <p>
+          Showcase the images generated during testing from your static uploads folder, along with training or experiment visuals from your experiment folder.
+        </p>
+      </div>
+
+      <div class="gallery-grid">
+        <article class="gallery-card">
+          <img src="f:\prime\Projects\NST-AdaIN\static\uploads\stylized_000000000191.jpg" alt="Neural style transfer testing result one" />
+          <div class="gallery-content">
+            <h3>Testing Sample 01</h3>
+            <p>Example output from a content and style image pair tested through the NST-AdaIN app.</p>
+          </div>
+        </article>
+
+        <article class="gallery-card">
+          <img src="f:\prime\Projects\NST-AdaIN\static\uploads\stylized_brad_pitt.jpg" alt="Neural style transfer testing result two" />
+          <div class="gallery-content">
+            <h3>Testing Sample 02</h3>
+            <p>Generated result showing how the alpha strength changes the final stylized image.</p>
+          </div>
+        </article>
+
+        <article class="gallery-card">
+          <img src="f:\prime\Projects\NST-AdaIN\static\uploads\stylized_i_p_image.jpg" alt="Neural style transfer testing result three" />
+          <div class="gallery-content">
+            <h3>Testing Sample 03</h3>
+            <p>A visual sample from the upload-based testing workflow inside the deployed application.</p>
+          </div>
+        </article>
+
+        <article class="gallery-card">
+          <img src="f:\prime\Projects\NST-AdaIN\experiment\major-dataset\output_15.png" alt="Training experiment image one" />
+          <div class="gallery-content">
+            <h3>Training Experiment 01</h3>
+            <p>Training or experiment image used to inspect model behavior during the AdaIN pipeline.</p>
+          </div>
+        </article>
+
+        <article class="gallery-card">
+          <img src="f:\prime\Projects\NST-AdaIN\experiment\major-dataset\output_16.png" alt="Training experiment image two" />
+          <div class="gallery-content">
+            <h3>Training Experiment 02</h3>
+            <p>Experiment visual for comparing reconstruction quality, texture transfer, or stylization strength.</p>
+          </div>
+        </article>
+
+        <article class="gallery-card">
+          <img src="f:\prime\Projects\NST-AdaIN\experiment\major-dataset\output_18.png" alt="Training experiment image three" />
+          <div class="gallery-content">
+            <h3>Training Experiment 03</h3>
+            <p>Additional model training sample to make the project page feel more practical and evidence-based.</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="gallery-note">
+        Replace the sample filenames with your real image names. If your folder is actually named <code>static/upoads</code>, use <code>static/upoads/test-1.jpg</code>. If it is the standard Flask folder, keep <code>static/uploads/test-1.jpg</code>. Also update <code>experiment/training-1.jpg</code> if your folder name is different.
+      </div>
+    </section>
+
+    <section id="try" class="page-shell cta-section">
+      <div class="cta-box">
+        <h2>Ready to generate your own neural artwork?</h2>
+        <p>
+          Try the live demo, experiment with different image pairs, and use the source code to learn how real-time arbitrary style transfer works.
+        </p>
+        <div class="hero-actions" style="justify-content: center; margin-bottom: 0;">
+          <a class="btn btn-primary" href="https://huggingface.co/spaces/sriKritarth/trial-2" target="_blank" rel="noreferrer">Launch Deployed App</a>
+          <a class="btn" href="https://github.com/sriKritarth/NST-AdaIN" target="_blank" rel="noreferrer">Explore GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-shell footer">
+    <span>© 2026 NST-AdaIN. Built for neural style transfer experiments.</span>
+    <span>landing page</span>
+  </footer>
+</body>
+</html>
